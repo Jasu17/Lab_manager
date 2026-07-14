@@ -56,6 +56,14 @@ def get_agenda(db: Session, estado: EstadoCita | None=None) -> list[Cita]:
 
     return query.order_by(Cita.fecha, Cita.hora).all()
 
+def get_agenda_bacteriologa(db: Session) -> list[Cita]:
+    return (
+        db.query(Cita).filter(
+            Cita.estado.in_([EstadoCita.EN_ESPERA, EstadoCita.EN_ATENCION]))
+            .order_by(Cita.fecha, Cita.hora)
+            .all()
+    )
+
 def update_estado_cita(db: Session, id_cita:int, nuevo_estado: EstadoCita) -> Cita | None:
     cita = get_cita_by_id(db, id_cita)
     if cita is None:
