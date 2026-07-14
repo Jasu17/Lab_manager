@@ -14,6 +14,7 @@ class EstadoCita(enum.Enum):
     AGENDADA = "AGENDADA"
     EN_ESPERA = "EN_ESPERA"
     EN_ATENCION = "EN_ATENCION"
+    CANCELADA = "CANCELADA"
     FINALIZADA = "FINALIZADA"
 
 
