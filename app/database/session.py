@@ -23,5 +23,5 @@ def init_db():
     Debe llamarse una sola vez al iniciar la aplicación (o reemplazarse
     por Alembic una vez se gestionen migraciones).
     """
-    from app.models import usuario, paciente, examen, cita, encuesta #noqa: F401
+    import app.models #noqa: F401
     Base.metadata.create_all(bind=engine)

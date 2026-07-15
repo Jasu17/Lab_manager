@@ -7,7 +7,7 @@ from alembic import context
 
 from app.models.base import Base
 from app.database.session import DATABASE_URL
-from app.models import usuario, paciente, examen, encuesta, cita #noqa: F401 
+import app.models #noqa: F401 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
