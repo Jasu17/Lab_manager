@@ -5,7 +5,7 @@ Los usuarios se autentican con identifiaccion + contraseña (RF13)
 """
 
 import bcrypt
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.models.usuario import Usuario
 
 
@@ -27,6 +27,7 @@ def autenticate(db: Session, identificacion: str, password: str) -> Usuario | No
     """
     usuario = (
         db.query(Usuario)
+        .options(joinedload(Usuario.roles))
         .filter(Usuario.identificacion == identificacion, Usuario.activo==True)
         .first()
     )  
