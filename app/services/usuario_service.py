@@ -13,7 +13,7 @@ def create_usuario(
     usuario = Usuario(
         identificacion=identificacion,
         nombre=nombre,
-        password=hash_password(password),
+        password_hash=hash_password(password),
         activo=True,
     )
 

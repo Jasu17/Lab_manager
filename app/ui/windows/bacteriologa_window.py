@@ -8,5 +8,5 @@ class BacteriologaWindow(QWidget):
         self.setFixedSize(600, 400)
 
         layout = QVBoxLayout()
-        layout.addWidget(QLabel(f"Panel de bacteriologa - {usuario.nombre}"))
+        layout.addWidget(QLabel(f"Panel de Bacterióloga - {usuario['nombre']}"))
         self.setLayout(layout)

@@ -8,5 +8,5 @@ class AdminWindow(QWidget):
         self.setFixedSize(600,400)
 
         layout = QVBoxLayout()
-        layout.addWidget(QLabel(f"Panel de administrador - {usuario.nombre}"))
+        layout.addWidget(QLabel(f"Panel de administrador - {usuario['nombre']}"))
         self.setLayout(layout)

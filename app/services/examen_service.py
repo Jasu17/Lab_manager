@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.models.examen import ExamenRealizado, EstadoExamen
+from app.models.examen import ExamenRealizado, EstadoExamen, TipoExamen
 
 def get_examem_by_id(db: Session, id_examen: int) -> ExamenRealizado | None:
     return db.query(ExamenRealizado).filter(
@@ -10,6 +10,9 @@ def get_examenes_by_cita(db: Session, id_cita: int) -> list[ExamenRealizado]:
     return db.query(ExamenRealizado).filter(
         ExamenRealizado.cita == id_cita
     ).all()
+
+def get_all_tipos_examen(db: Session) -> list[TipoExamen]:
+    return db.query(TipoExamen).order_by(TipoExamen.nombre).all()
 
 def save_resultado(
     db: Session,

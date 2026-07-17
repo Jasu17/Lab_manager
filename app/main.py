@@ -26,12 +26,18 @@ class AppController:
     def handle_login_success(self, usuario):
         self.login_window.close()
 
-        if len(usuario.roles) == 1:
-            self.open_role_window(usuario, usuario.roles[0])
+        usuario_dict = {
+            "id_usuario":usuario.id_usuario,
+            "nombre":usuario.nombre,
+            "identificacion":usuario.identificacion,
+        }
+        roles = list(usuario.roles)
+        if len(roles) ==1:
+            self.open_role_window(usuario_dict, roles[0])
         else:
             self.role_selector_window = RoleSelectorWindow(usuario)
             self.role_selector_window.role_selected.connect(
-                lambda rol: self.open_role_window(usuario, rol)
+                lambda rol: self.open_role_window(usuario_dict, rol)
             )
             self.role_selector_window.show()
 
