@@ -47,7 +47,7 @@ def create_paciente(
 
 def get_paciente_by_id(db: Session, id_paciente: int) -> Paciente | None:
     """Obtiene un paciente por su ID."""
-    return db.query(Paciente).filter(Paciente.id_paciente == id_paciente).first
+    return db.query(Paciente).filter(Paciente.id_paciente == id_paciente).first()
 
 def search_pacientes(db: Session, query: str) -> list[Paciente]:
     """
