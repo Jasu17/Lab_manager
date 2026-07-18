@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import(
-    QDialog, QFormLayout, QLineEdit, QPushButton, QLabel, QVBoxLayout
+    QDialog, QFormLayout, QLineEdit, QPushButton, QLabel, QVBoxLayout, QComboBox
 )
 from app.database.session import SessionLocal
 from app.services.paciente_service import create_paciente
@@ -12,7 +12,8 @@ class PacienteFormDialog(QDialog):
         self.paciente_creado = None
 
         self.input_identificacion=QLineEdit()
-        self.input_tipo_id=QLineEdit()
+        self.input_tipo_id=QComboBox()
+        self.input_tipo_id.addItems(["CC","TI","CE","PA",])
         self.input_nombre = QLineEdit()
 
         self.label_error = QLabel("")
@@ -34,7 +35,7 @@ class PacienteFormDialog(QDialog):
 
     def handle_guardar(self):
         identificacion = self.input_identificacion.text().strip()
-        tipo_id = self.input_tipo_id.text().strip()
+        tipo_id = self.input_tipo_id.currentText()
         nombre = self.input_nombre.text().strip()
 
         if not identificacion or not tipo_id or not nombre:
