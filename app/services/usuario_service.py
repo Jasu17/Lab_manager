@@ -35,11 +35,11 @@ def get_all_usuarios(db: Session, solo_activos: bool=False) -> list[Usuario]:
     return query.all()
 
 def update_usuario(db: Session, id_usuario: int, **campos) -> Usuario | None:
-    usuario = get_usuario_by_id(id_usuario)
+    usuario = get_usuario_by_id(db, id_usuario)
     if usuario is None:
         return None
 
-    campos.pop("passowrd", None) # La contraseña no se actualiza aquí
+    campos.pop("password", None) # La contraseña no se actualiza aquí
     for campo, valor in campos.items():
         if hasattr(usuario, campo):
             setattr(usuario, campo, valor)
@@ -105,3 +105,7 @@ def remove_rol(db: Session, id_usuario: int, id_rol: int) -> Usuario | None:
         db.refresh(usuario)
     
     return usuario
+
+def get_all_roles(db: Session)-> list[Rol]:
+    """Lista todos los roles disponibles en el sistema"""
+    return db.query(Rol).order_by(Rol.nombre).all()
