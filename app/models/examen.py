@@ -5,7 +5,7 @@ ExamenRealizado: instancia de un examen aplicado en una cita específica.
 """
 
 import enum
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from app.models.base import Base, TimestampMixin
 
@@ -25,6 +25,7 @@ class TipoExamen(Base):
     precio = Column(Integer, nullable=False)
     tipo_muestra = Column(String, nullable=True)
     tecnica_utilizada = Column(String, nullable=True)
+    activo = Column(Boolean, default=True, nullable=False)
 
     # Relaciones
     examenes_realizados = relationship("ExamenRealizado", back_populates="tipo_examen")
