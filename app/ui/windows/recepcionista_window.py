@@ -1,12 +1,12 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTabWidget
+from PySide6.QtWidgets import QLabel, QTabWidget
 from app.ui.widgets.agenda_widget import AgendaWidget
 from app.ui.widgets.cita_widget import CitaWidget
 from app.ui.widgets.paciente_widget import PacienteWidget
+from app.ui.windows.base_role_windows import BaseRoleWindow
 
-class RecepcionistaWindow(QWidget):
-    def __init__(self, usuario):
-        super().__init__()
-        self.usuario = usuario
+class RecepcionistaWindow(BaseRoleWindow):
+    def __init__(self, usuario, roles):
+        super().__init__(usuario, roles)
         self.setWindowTitle("Lab Manager - Recepcionista")
         self.setFixedSize(900, 600)
 
@@ -19,7 +19,5 @@ class RecepcionistaWindow(QWidget):
         tabs.addTab(self.cita_widget, "Nueva Cita")
         tabs.addTab(self.paciente_widget, "Pacientes")
 
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel(f"Panel de Recepcionista - {usuario['nombre']}"))
-        layout.addWidget(tabs)
-        self.setLayout(layout)
+        self.add_content(QLabel(f"Panel de Recepcionista - {usuario['nombre']}"))
+        self.add_content(tabs)

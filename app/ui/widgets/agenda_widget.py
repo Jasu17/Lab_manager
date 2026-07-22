@@ -56,7 +56,7 @@ class AgendaWidget(QWidget):
                     "identificacion": cita.paciente.identificacion,
                     "fecha": cita.fecha.strftime("%Y-%m-%d"),
                     "hora": cita.hora.strftime("%H:%M"),
-                    "examenes": examenes_str,
+                    "examenes": examen_str,
                     "estado": cita.estado,
                 })
 
@@ -75,7 +75,7 @@ class AgendaWidget(QWidget):
             tabla.setItem(row_idx, 2, QTableWidgetItem(fila["identificacion"]))
             tabla.setItem(row_idx, 3, QTableWidgetItem(fila["fecha"]))
             tabla.setItem(row_idx, 4, QTableWidgetItem(fila["hora"]))
-            tabla.setItem(row_idx, 5, QTableWidgetItem(fila["Examenes"]))
+            tabla.setItem(row_idx, 5, QTableWidgetItem(fila["examenes"]))
 
             combo = QComboBox()
 
@@ -90,7 +90,7 @@ class AgendaWidget(QWidget):
     def _on_estado_changed(self, id_cita: int, combo: QComboBox):
         nuevo_estado = combo.currentData()
 
-        db = SessionLocal
+        db = SessionLocal()
         try:
             update_estado_cita(db, id_cita, nuevo_estado)
         finally:

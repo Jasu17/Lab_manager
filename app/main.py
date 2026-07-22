@@ -13,7 +13,6 @@ ROLE_WINDOW_MAP = {
 }
 
 class AppController:
-    
     def __init__(self):
         self.login_window = LoginWindow()
         self.login_window.login_success.connect(self.handle_login_success)
@@ -27,30 +26,41 @@ class AppController:
         self.login_window.close()
 
         usuario_dict = {
-            "id_usuario":usuario.id_usuario,
-            "nombre":usuario.nombre,
-            "identificacion":usuario.identificacion,
+            "id_usuario": usuario.id_usuario,
+            "nombre": usuario.nombre,
+            "identificacion": usuario.identificacion,
         }
         roles = list(usuario.roles)
-        if len(roles) ==1:
-            self.open_role_window(usuario_dict, roles[0])
-        else:
-            self.role_selector_window = RoleSelectorWindow(usuario)
-            self.role_selector_window.role_selected.connect(
-                lambda rol: self.open_role_window(usuario_dict, rol)
-            )
-            self.role_selector_window.show()
 
-    def open_role_window(self, usuario, rol):
+        if len(roles) == 1:
+            self.open_role_window(usuario_dict, roles, roles[0])
+        else:
+            self.mostrar_selector(usuario_dict, roles)
+
+    def mostrar_selector(self, usuario_dict, roles):
+        self.role_selector_window = RoleSelectorWindow(usuario_dict, roles)
+        self.role_selector_window.role_selected.connect(
+            lambda rol: self.open_role_window(usuario_dict, roles, rol)
+        )
+        self.role_selector_window.show()
+
+    def open_role_window(self, usuario_dict, roles, rol):
         if self.role_selector_window is not None:
             self.role_selector_window.close()
+        if self.role_window is not None:
+            self.role_window.close()
 
         window_class = ROLE_WINDOW_MAP.get(rol.nombre)
         if window_class is None:
             raise ValueError(f"No hay ventana definida para el rol: {rol.nombre}")
 
-        self.role_window = window_class(usuario)
+        self.role_window = window_class(usuario_dict, roles)
+        self.role_window.cambiar_rol_solicitado.connect(self.handle_cambiar_rol)
         self.role_window.show()
+
+    def handle_cambiar_rol(self, usuario_dict, roles):
+        self.role_window.close()
+        self.mostrar_selector(usuario_dict, roles)
 
 def main():
     app = QApplication(sys.argv)
