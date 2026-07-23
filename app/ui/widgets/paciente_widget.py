@@ -26,6 +26,7 @@ class PacienteWidget(QWidget):
         self.input_busqueda.setPlaceholderText("Buscar por nombre o identificación...")
         btn_buscar = QPushButton("Buscar")
         btn_buscar.clicked.connect(self.handle_buscar)
+        self.input_busqueda.returnPressed.connect(self.handle_buscar)
 
         busqueda_layout = QHBoxLayout()
         busqueda_layout.addWidget(self.input_busqueda)

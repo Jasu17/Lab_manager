@@ -31,6 +31,7 @@ class CitaWidget(QWidget):
         self.input_busqueda.setPlaceholderText("Buscar por nombre o identificación...")
         btn_buscar = QPushButton("Buscar")
         btn_buscar.clicked.connect(self.handle_buscar_paciente)
+        self.input_busqueda.returnPressed.connect(self.handle_buscar_paciente)
 
         btn_nuevo_paciente = QPushButton("Registrar nuevo paciente")
         btn_nuevo_paciente.clicked.connect(self.handle_nuevo_paciente)

@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+    QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget
 )
 
 from app.database.session import SessionLocal
@@ -28,7 +28,8 @@ class TipoExamenWidget(QWidget):
 
         # -- Formulario
         self.input_nombre = QLineEdit()
-        self.input_referencia = QLineEdit()
+        self.input_referencia = QTextEdit()
+        self.input_referencia.setFixedHeight(100)
         self.input_precio = QSpinBox()
         self.input_precio.setRange(0, 10_000_000)
         self.input_precio.setSingleStep(1000)
@@ -114,7 +115,7 @@ class TipoExamenWidget(QWidget):
 
         self.id_tipo_examen_actual = t["id_tipo_examen"]
         self.input_nombre.setText(t["nombre"])
-        self.input_referencia.setText(t["referencia"] or "")
+        self.input_referencia.setPlainText(t["referencia"] or "")
         self.input_precio.setValue(t["precio"])
         self.input_tipo_muestra.setText(t["tipo_muestra"] or "")
         self.input_tecnica.setText(t["tecnica_utilizada"] or "")
@@ -134,7 +135,7 @@ class TipoExamenWidget(QWidget):
                 db,
                 nombre=nombre,
                 precio=self.input_precio.value(),
-                referencia=self.input_referencia.text().strip() or None,
+                referencia=self.input_referencia.toPlainText().strip() or None,
                 tipo_muestra=self.input_tipo_muestra.text().strip() or None,
                 tecnica_utilizada=self.input_tecnica.text().strip() or None,
             )
@@ -157,7 +158,7 @@ class TipoExamenWidget(QWidget):
                 db, self.id_tipo_examen_actual,
                 nombre=self.input_nombre.text().strip(),
                 precio=self.input_precio.value(),
-                referencia=self.input_referencia.text().strip() or None,
+                referencia=self.input_referencia.toPlainText().strip() or None,
                 tipo_muestra=self.input_tipo_muestra.text().strip() or None,
                 tecnica_utilizada=self.input_tecnica.text().strip() or None,
             )
