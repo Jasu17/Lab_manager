@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QDateEdit, QMessageBox
 )
 from PySide6.QtCore import Qt, QDate
-from sqlalchemy.orm import query
+from app.ui.widgets.debounced_search import DebouncedSearch
 from app.database.session import SessionLocal
 from app.services.paciente_service import search_pacientes, update_paciente
 
@@ -23,14 +23,11 @@ class PacienteWidget(QWidget):
 
         # -- Busqueda
         self.input_busqueda = QLineEdit()
-        self.input_busqueda.setPlaceholderText("Buscar por nombre o identificación...")
-        btn_buscar = QPushButton("Buscar")
-        btn_buscar.clicked.connect(self.handle_buscar)
-        self.input_busqueda.returnPressed.connect(self.handle_buscar)
+        self.input_busqueda.setPlaceholderText("Buscar por nombre o identificaion...")
+        self._debounced_search = DebouncedSearch(self.input_busqueda, self.handle_buscar)
 
         busqueda_layout = QHBoxLayout()
         busqueda_layout.addWidget(self.input_busqueda)
-        busqueda_layout.addWidget(btn_buscar)
 
         self.tabla_resultados = QTableWidget()
         self.tabla_resultados.setColumnCount(len(RESULTADOS_COLUMNS))
@@ -86,10 +83,7 @@ class PacienteWidget(QWidget):
         self.setLayout(layout)
 
 
-    def handle_buscar (self):
-        query = self.input_busqueda.text().strip()
-        if not query:
-            return
+    def handle_buscar (self, query: str):
         
         db = SessionLocal()
         try:
