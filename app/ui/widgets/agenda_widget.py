@@ -1,13 +1,14 @@
 from PySide6.QtWidgets import(
-    QWidget, QVBoxLayout, QTabWidget, QTableWidget, QTableWidgetItem, QComboBox
+    QWidget, QVBoxLayout, QTabWidget, QTableWidget, QTableWidgetItem, QComboBox, QPushButton
 )
 from sqlalchemy.orm import joinedload
 from app.database.session import SessionLocal
 from app.models.cita import Cita, EstadoCita
 from app.services.cita_service import update_estado_cita
 from app.models.examen import ExamenRealizado
+from app.ui.widgets.editar_examenes_dialog import EditarExamenesDialog
 
-COLUMNS = ["Nombre","Tipo ID","Identificacion","Fecha","Hora","Examenes","Estado"]
+COLUMNS = ["Nombre", "Tipo ID", "Identificación", "Fecha", "Hora", "Exámenes", "Estado", "Acciones"]
 
 class AgendaWidget(QWidget):
     def __init__(self):
@@ -57,6 +58,10 @@ class AgendaWidget(QWidget):
                     "fecha": cita.fecha.strftime("%Y-%m-%d"),
                     "hora": cita.hora.strftime("%H:%M"),
                     "examenes": examen_str,
+                    "examenes_detalle": [
+                        {"id_examen": ex.id_examen, "id_tipo_examen": ex.id_tipo_examen}
+                        for ex in cita.examenes
+                    ],
                     "estado": cita.estado,
                 })
 
@@ -78,14 +83,24 @@ class AgendaWidget(QWidget):
             tabla.setItem(row_idx, 5, QTableWidgetItem(fila["examenes"]))
 
             combo = QComboBox()
-
             for estado_opcion in EstadoCita:
                 combo.addItem(estado_opcion.value, estado_opcion)
             combo.setCurrentText(fila["estado"].value)
-            combo.currentIndexChanged.connect(
+            combo.currentTextChanged.connect(
                 lambda index, id_cita=fila["id_cita"], c=combo: self._on_estado_changed(id_cita, c)
             )
             tabla.setCellWidget(row_idx, 6, combo)
+
+            btn_editar = QPushButton("Editar Exámenes")
+            puede_editar = fila["estado"] in (
+                EstadoCita.AGENDADA, EstadoCita.EN_ESPERA, EstadoCita.EN_ATENCION
+            )
+            btn_editar.setEnabled(puede_editar)
+            btn_editar.clicked.connect(
+                lambda checked = False, id_cita = fila["id_cita"], examenes = fila["examenes_detalle"]:
+                    self._abrir_editar_examenes(id_cita, examenes)
+            )
+            tabla.setCellWidget(row_idx, 7, btn_editar)
 
     def _on_estado_changed(self, id_cita: int, combo: QComboBox):
         nuevo_estado = combo.currentData()
@@ -97,4 +112,9 @@ class AgendaWidget(QWidget):
             db.close()
 
         self.refresh_agenda()
+
+    def _abrir_editar_examenes(self, id_cita: int, examenes_detalle: list[dict]):
+        dialog = EditarExamenesDialog(id_cita, examenes_detalle, self)
+        if dialog.exec() == EditarExamenesDialog.DialogCode.Accepted:
+            self.refresh_agenda()
 

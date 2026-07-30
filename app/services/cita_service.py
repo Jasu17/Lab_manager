@@ -76,3 +76,45 @@ def update_estado_cita(db: Session, id_cita:int, nuevo_estado: EstadoCita) -> Ci
 
 def cancel_cita(db: Session, id_cita: int) -> Cita | None:
     return update_estado_cita(db, id_cita, EstadoCita.CANCELADA)
+
+def add_examen_to_cita (db: Session, id_cita: int, id_tipo_examen: int)-> ExamenRealizado | None:
+    cita = get_cita_by_id(db, id_cita)
+    if cita is None:
+        return None
+
+    if cita.estado not in (EstadoCita.AGENDADA, EstadoCita.EN_ESPERA, EstadoCita.EN_ATENCION):
+        raise ValueError("No se pueden editar exámenes de una cita finalizada o cancelada.")
+
+    tipo_examen = db.query(TipoExamen).filter(
+        TipoExamen.id_tipo_examen == id_tipo_examen
+    ).first()
+    if tipo_examen is None:
+        raise ValueError(f"TipoExamen {id_tipo_examen} no existe.")
+
+    examen = ExamenRealizado(
+        id_cita=id_cita,
+        id_tipo_examen=id_tipo_examen,
+        precio_cobrado=tipo_examen.precio,
+        estado=EstadoExamen.PENDIENTE,
+    )
+    db.add(examen)
+    db.flush()
+    return examen
+
+def remove_examen_from_cita(db: Session, id_examen:int, id_cita: int, examenes_finales_count: int)->bool:
+    examen = db.query(ExamenRealizado).filter(
+        ExamenRealizado.id_examen == id_examen
+    ).first()
+    if examen is None:
+        return False
+
+    cita = get_cita_by_id(db, id_cita)
+    if cita.estado not in (EstadoCita.AGENDADA, EstadoCita.EN_ATENCION, EstadoCita.EN_ESPERA):
+        raise ValueError("No se pueden editar exámenes de una cita finalizada o cancelada")
+
+    if examenes_finales_count <= 1:
+        raise ValueError("La cita debe tener al menos un examen; No se puede eliminar el último")
+
+    db.delete(examen)
+    db.flush()
+    return True
