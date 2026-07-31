@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import (
-    QCheckBox, QDialog, QLabel, QMessageBox, QPushButton, QVBoxLayout,
+    QCheckBox, QDialog, QLabel, QLineEdit, QMessageBox, QPushButton, QVBoxLayout
 )
 
 from app.database.session import SessionLocal
 from app.services.cita_service import add_examen_to_cita, remove_examen_from_cita
 from app.services.examen_service import get_all_tipos_examen
+from app.ui.widgets.debounced_search import DebouncedSearch
 
 class EditarExamenesDialog(QDialog):
     def __init__(self, id_cita: int, examenes_actuales: list[dict], parent=None):
@@ -19,9 +20,17 @@ class EditarExamenesDialog(QDialog):
         self.setFixedSize(320, 400)
 
         self.checkboxes = {} # id_tipo_examen -> QCheckBox
+        self._nombres_por_id = {} # id_tipo_examen -> Nombre en minusculas
 
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Seleccione los exámenes para esta cita:"))
+
+        self.input_busqueda = QLineEdit()
+        self.input_busqueda.setPlaceholderText("Filtrar exámenes (min 3 carácteres)")
+        self._debounced_search = DebouncedSearch(
+            self.input_busqueda, self.filtrar_examenes, show_all_on_empty=True
+        )
+        layout.addWidget(self.input_busqueda)
 
         db = SessionLocal()
         try:
@@ -32,6 +41,7 @@ class EditarExamenesDialog(QDialog):
                 checkbox = QCheckBox(t.nombre)
                 checkbox.setChecked(t.id_tipo_examen in ids_actuales)
                 self.checkboxes[t.id_tipo_examen] = checkbox
+                self._nombres_por_id[t.id_tipo_examen] = t.nombre.lower()
                 layout.addWidget(checkbox)
         finally:
             db.close()
@@ -41,6 +51,12 @@ class EditarExamenesDialog(QDialog):
         layout.addWidget(btn_guardar)
 
         self.setLayout(layout)
+
+    def filtrar_examenes(self, texto: str):
+        texto = texto.lower().strip()
+        for id_tipo, checkbox in self.checkboxes.items():
+            nombre = self._nombres_por_id[id_tipo]
+            checkbox.setVisible(texto in nombre)
 
     def handle_guardar(self):
         ids_actuales = {e["id_tipo_examen"]: e["id_examen"] for e in self.examenes_actuales}

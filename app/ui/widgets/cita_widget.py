@@ -59,7 +59,9 @@ class CitaWidget(QWidget):
 
         self.input_busqueda_examen = QLineEdit()
         self.input_busqueda_examen.setPlaceholderText("Filtrar exámenes (min. 3 caracteres)...")
-        self._debounced_search_examen = DebouncedSearch(self.input_busqueda_examen, self.filtrar_examenes)
+        self._debounced_search_examen = DebouncedSearch(
+            self.input_busqueda_examen, self.filtrar_examenes, show_all_on_empty=True
+        )
 
         self.lista_examenes = QListWidget()
 

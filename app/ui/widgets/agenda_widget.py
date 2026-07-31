@@ -25,7 +25,12 @@ class AgendaWidget(QWidget):
             self.tables[estado] = tabla
             self.tabs.addTab(tabla, estado.value)
 
+        btn_refrescar = QPushButton("Refrescar agenda")
+        btn_refrescar.clicked.connect(self.refresh_agenda)
+
+
         layout = QVBoxLayout()
+        layout.addWidget(btn_refrescar)
         layout.addWidget(self.tabs)
         self.setLayout(layout)
 

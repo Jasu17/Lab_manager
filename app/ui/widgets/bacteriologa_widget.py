@@ -52,8 +52,12 @@ class BacteriologaWidget(QWidget):
         self.btn_pdf_resultado.setEnabled(False)
         self.btn_pdf_resultado.clicked.connect(self.handle_generar_pdf_resultado)
 
+        btn_refrescar = QPushButton("Refrescar Agenda")
+        btn_refrescar.clicked.connect(self.refresh_citas)
+
         # -- Layout General
         layout = QVBoxLayout()
+        layout.addWidget(btn_refrescar)
         layout.addWidget(QLabel("Citas habilitadas"))
         layout.addWidget(self.tabla_citas)
         layout.addWidget(btn_comprobante)

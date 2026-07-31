@@ -1,9 +1,10 @@
 from PySide6.QtCore import QTimer
 
 class DebouncedSearch:
-    def __init__(self, input_widget, callback, delay_ms: int=500, min_chars: int=3, ):
+    def __init__(self, input_widget, callback, delay_ms: int=500, min_chars: int=3, show_all_on_empty: bool = False):
         self.callback = callback
         self.min_chars = min_chars
+        self.show_all_on_empty = show_all_on_empty
 
         self.timer = QTimer()
         self.timer.setSingleShot(True)
@@ -19,6 +20,9 @@ class DebouncedSearch:
             self.timer.start()
         else:
             self.timer.stop()
+            
+            if self.show_all_on_empty and self._texto_actual == "":
+                self.callback("")
 
     def _ejecutar_busqueda(self):
         self.callback(self._texto_actual)
