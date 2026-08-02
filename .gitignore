@@ -2,3 +2,6 @@ venv/
 __pycache__/
 *.db
 .env
+app/resources/firmas/
+app/resources/logo/
+app/config/lab_config.json

@@ -1,11 +1,10 @@
-from tabnanny import check
-
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QPushButton, QLabel, QLineEdit, QCheckBox, QMessageBox
+    QPushButton, QLabel, QLineEdit, QCheckBox, QMessageBox, QFileDialog
 )
 from PySide6.QtCore import Qt
-from sqlalchemy.orm import Session
+import shutil
+import os
 from app.database.session import SessionLocal
 from app.services.usuario_service import(
     get_all_usuarios, get_usuario_by_id, update_usuario, change_password,
@@ -36,6 +35,12 @@ class UsuarioWidget(QWidget):
         self.input_nueva_password = QLineEdit()
         self.input_nueva_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.input_nueva_password.setPlaceholderText("Dejar vacío para no cambiar")
+        self.input_registro_profesional = QLineEdit()
+        
+        self.label_firma_actual = QLabel("Sin firma cargada...")
+        self.btn_seleccionar_firma = QPushButton("Cargar firma (imagen)")
+        self.btn_seleccionar_firma.clicked.connect(self.handle_seleccionar_firma)
+        self._ruta_firma_nueva = None
         
         self.checkboxes_roles_widget = QWidget()
         self.checkboxes_roles_layout = QVBoxLayout()
@@ -57,6 +62,11 @@ class UsuarioWidget(QWidget):
         form_layout.addWidget(self.input_nombre)
         form_layout.addWidget(QLabel("Nueva contraseña:"))
         form_layout.addWidget(self.input_nueva_password)
+        form_layout.addWidget(QLabel("Registro profesional (opcional):"))
+        form_layout.addWidget(self.input_registro_profesional)
+        form_layout.addWidget(QLabel("Firma Digital (opcional):"))
+        form_layout.addWidget(self.label_firma_actual)
+        form_layout.addWidget(self.btn_seleccionar_firma)
         form_layout.addWidget(QLabel("Roles:"))
         form_layout.addWidget(self.checkboxes_roles_widget)
 
@@ -130,6 +140,12 @@ class UsuarioWidget(QWidget):
             self.input_identificacion.setText(usuario.identificacion)
             self.input_nombre.setText(usuario.nombre)
             self.input_nueva_password.clear()
+            self.input_registro_profesional.setText(usuario.registro_profesional or "")
+            self._ruta_firma_nueva = None
+            if usuario.firma_imagen:
+                self.label_firma_actual.setText(f"Firma cargada: {os.path.basename(usuario.firma_imagen)}")
+            else:
+                self.label_firma_actual.setText("Sin firma cargada.")
 
             roles_actuales = {r.id_rol for r in usuario.roles}
             for id_rol, checkbox in self.checkboxes_roles.items():
@@ -145,13 +161,24 @@ class UsuarioWidget(QWidget):
         if self.id_usuario_actual is None:
             return
 
+        campos_actualizar = {
+            "identificacion": self.input_identificacion.text().strip(),
+            "nombre": self.input_nombre.text().strip(),
+            "registro_profesional": self.input_registro_profesional.text().strip() or None,
+        }
+
+        if self._ruta_firma_nueva:
+            carpeta_firmas = os.path.join("app", "resources", "firmas")
+            os.makedirs(carpeta_firmas, exist_ok=True)
+            extension = os.path.splitext(self._ruta_firma_nueva)[1]
+            nombre_archivo = f"usuario_{self.id_usuario_actual}{extension}"
+            ruta_destino = os.path.join(carpeta_firmas, nombre_archivo)
+            shutil.copy(self._ruta_firma_nueva, ruta_destino)
+            campos_actualizar["firma_imagen"] = ruta_destino
+
         db = SessionLocal()
         try:
-            update_usuario(
-                db, self.id_usuario_actual, 
-                identificacion= self.input_identificacion.text().strip(),
-                nombre=self.input_nombre.text().strip(), 
-            )
+            update_usuario(db, self.id_usuario_actual, **campos_actualizar)
 
             nueva_password = self.input_nueva_password.text()
             if nueva_password:
@@ -193,6 +220,16 @@ class UsuarioWidget(QWidget):
             db.close()
 
         self.refresh_usuarios()
+
+    def handle_seleccionar_firma(self):
+        ruta_origen, _ = QFileDialog.getOpenFileName(
+            self, "Seleccionar imagen de firma", "", "Imágenes (*.png *.jpg *.jpeg)"
+        )
+        if not ruta_origen:
+            return
+
+        self._ruta_firma_nueva = ruta_origen
+        self.label_firma_actual.setText(f"Nueva firma seleccionada: {os.path.basename(ruta_origen)}")
 
     def handle_crear_usuario(self):
         dialog = UsuarioFormDialog(self)

@@ -23,6 +23,7 @@ class Paciente(Base):
     hijos = Column(Integer, nullable=True)
     estudios = Column(String, nullable=True)
     responsable = Column(String, nullable=True)
+    ciudad = Column(String, nullable=True)
 
     # Relaciones
     citas = relationship("Cita", back_populates="paciente")

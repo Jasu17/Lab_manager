@@ -1,13 +1,16 @@
+from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QLabel, QTextEdit, QMessageBox, QFileDialog
 )
 from PySide6.QtCore import Qt
+from app.config.lab_config import get_lab_config
 from app.database.session import SessionLocal
 from app.services.cita_service import get_agenda_bacteriologa
 from app.services.examen_service import save_resultado
-from app.reports.resultado_examen import generar_pdf_resultado
+from app.reports.resultado_examen import calcular_edad, generar_pdf_resultado
 from app.reports.comprobante_asistencia import generar_pdf_comprobante_asistencia
+from app.services.usuario_service import get_usuario_by_id
 
 CITAS_COLUMNS = ["Paciente", "Identificación", "Fecha", "Hora", "Localidad"]
 EXAMENES_COLUMNS = ["Tipo de Examen", "Estado"]
@@ -92,10 +95,13 @@ class BacteriologaWidget(QWidget):
                     "fecha": c.fecha.strftime("%Y-%m-%d"),
                     "hora": c.hora.strftime("%H:%M"),
                     "localidad": c.localidad,
+                    "id_paciente": c.paciente.id_paciente,
                     "examenes": [
                         {
                             "id_examen": e.id_examen,
+                            "id_tipo_examen": e.id_tipo_examen,
                             "tipo_examen_nombre": e.tipo_examen.nombre,
+                            "referencia": e.tipo_examen.referencia,
                             "estado": e.estado.value,
                             "resultado": e.resultado,
                             "observaciones": e.observaciones,
@@ -182,29 +188,60 @@ class BacteriologaWidget(QWidget):
             return
 
         ruta, _ = QFileDialog.getSaveFileName(
-            self, "Guardar PDF de resultado", "resultado.pdf", "PDF (*.pdf)"
+            self, "Guardar PDF de resultado", "resultado.pdf", "PDF (*.pdf)" 
         )
         if not ruta:
             return
 
-        datos = {
-            "paciente_nombre": self.cita_actual["paciente_nombre"],
-            "paciente_tipo_id": self.cita_actual["paciente_tipo_id"],
-            "paciente_identificacion": self.cita_actual["paciente_identificacion"],
-            "tipo_examen_nombre": self.cita_actual["tipo_examen_nombre"],
-            "resultado": self.input_resultado.toPlainText().strip(),
-            "observaciones": self.input_observaciones.toPlainText().strip(),
-            "fecha": self.cita_actual["fecha"],
-            "usuario_nombre": self.usuario["nombre"],
-        }
+        db = SessionLocal()
+        try:
+            from app.services.paciente_service import get_paciente_by_id
+            usuario_bacteriologa = get_usuario_by_id(db, self.usuario["id_usuario"])
+            paciente = get_paciente_by_id(db, self.cita_actual["id_paciente"])
+            
+            lab_config = get_lab_config()
 
+            edad = calcular_edad(paciente.fecha_nacimiento) if paciente else None
+
+            datos = {
+                "numero_cita": self.cita_actual["id_cita"],
+                "fecha_cita": self.cita_actual["fecha"],
+                "fecha_actual": datetime.now().strftime("%d/%m/%Y"),
+                "hora_actual": datetime.now().strftime("%H:%M"),
+
+                "paciente_nombre": self.cita_actual["paciente_nombre"],
+                "paciente_documento": f"{self.cita_actual['paciente_tipo_id']} {self.cita_actual['paciente_identificacion']}",
+                "paciente_edad": edad,
+                "paciente_sexo": paciente.sexo if paciente else None,
+                "paciente_estado_civil": paciente.estado_civil if paciente else None,
+                "paciente_ciudad": paciente.ciudad if paciente else None,
+                "paciente_telefono": paciente.telefono if paciente else None,
+                "paciente_nacimiento": paciente.fecha_nacimiento.strftime("%d/%m/%Y") if paciente and paciente.fecha_nacimiento else None,
+
+                "examen_nombre": self.examen_actual["tipo_examen_nombre"],
+                "resultado": self.input_resultado.toPlainText().strip(),
+                "referencia": self.examen_actual.get("referencia"),
+                "fecha_examen": self.cita_actual["fecha"],
+
+                "lab_nombre": lab_config["nombre_lab"],
+                "lab_direccion": lab_config["direccion_lab"],
+                "lab_ciudad": lab_config["ciudad_lab"],
+                "lab_logo_path": lab_config["logo_path"],
+
+                "bacteriologa_nombre": usuario_bacteriologa.nombre if usuario_bacteriologa else self.usuario["nombre"],
+                "bacteriologa_registro": usuario_bacteriologa.registro_profesional if usuario_bacteriologa else None,
+                "bacteriologa_firma_path": usuario_bacteriologa.firma_imagen if usuario_bacteriologa else None,
+            }
+        finally:
+            db.close()
+        
         try:
             generar_pdf_resultado(ruta, datos)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo generar el PDF: {e}")
             return
-
-        QMessageBox.information(self, "Exito", f"PDF generado en: {ruta}")
+        
+        QMessageBox.information(self, "Éxito", f"PDF generado en : {ruta}")
 
     def handle_generar_comprobante(self):
         if self.cita_actual is None:

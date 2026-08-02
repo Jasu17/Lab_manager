@@ -1,5 +1,3 @@
-from sqlite3 import connect
-
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit,
     QPushButton, QLabel, QTableWidget, QTableWidgetItem, QComboBox,
@@ -13,7 +11,6 @@ from app.services.paciente_service import search_pacientes, update_paciente
 TIPOS_ID = ["CC","TI","CE","PA"]
 OPCIONES_SEXO = ["Masculino", "Femenino", "NB", "T"]
 OPCIONES_ESTADO_CIVIL = ["Soltero/a", "Casado/a", "Unión libre", "Divorciado/a", "Viudo/a"]
-
 RESULTADOS_COLUMNS = ["Nombre", "Tipo ID", "Identificación"]
 
 class PacienteWidget(QWidget):
@@ -53,6 +50,7 @@ class PacienteWidget(QWidget):
         self.input_hijos.setRange(0, 30)
         self.input_estudios = QLineEdit()
         self.input_responsable = QLineEdit()
+        self.input_ciudad = QLineEdit()
 
         form_layout = QFormLayout()
         form_layout.addRow("Identificación:", self.input_identificacion)
@@ -66,6 +64,7 @@ class PacienteWidget(QWidget):
         form_layout.addRow("Hijos:", self.input_hijos)
         form_layout.addRow("Estudios:", self.input_estudios)
         form_layout.addRow("Responsable:", self.input_responsable)
+        form_layout.addRow("Ciudad:", self.input_ciudad)
 
         self.btn_guardar = QPushButton("Guardar Cambios")
         self.btn_guardar.setEnabled(False)
@@ -134,6 +133,7 @@ class PacienteWidget(QWidget):
             self.input_hijos.setValue(paciente.hijos or 0)
             self.input_estudios.setText(paciente.estudios or "")
             self.input_responsable.setText(paciente.responsable or "")
+            self.input_ciudad.setText(paciente.ciudad or "")
         finally:
             db.close()
 
@@ -159,6 +159,7 @@ class PacienteWidget(QWidget):
                 hijos=self.input_hijos.value(),
                 estudios=self.input_estudios.text().strip() or None,
                 responsable=self.input_responsable.text().strip() or None,
+                ciudad=self.input_ciudad.text().strip() or None,
             )
 
         except Exception as e:
