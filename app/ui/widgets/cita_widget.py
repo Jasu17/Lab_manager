@@ -14,6 +14,7 @@ from app.database.session import SessionLocal
 from app.services.paciente_service import search_pacientes
 from app.services.examen_service import get_all_tipos_examen
 from app.services.cita_service import create_cita
+from app.ui.widgets.debounced_search import DebouncedSearch
 from app.ui.widgets.paciente_form_dialog import PacienteFormDialog
 
 PACIENTE_COLUMNS = ["Nombre", "Tipo ID", "Identificación"]
@@ -29,15 +30,13 @@ class CitaWidget(QWidget):
         # --- Búsqueda de paciente ---
         self.input_busqueda = QLineEdit()
         self.input_busqueda.setPlaceholderText("Buscar por nombre o identificación...")
-        btn_buscar = QPushButton("Buscar")
-        btn_buscar.clicked.connect(self.handle_buscar_paciente)
+        self._debounced_search = DebouncedSearch(self.input_busqueda, self.handle_buscar_paciente)
 
         btn_nuevo_paciente = QPushButton("Registrar nuevo paciente")
         btn_nuevo_paciente.clicked.connect(self.handle_nuevo_paciente)
 
         busqueda_layout = QHBoxLayout()
         busqueda_layout.addWidget(self.input_busqueda)
-        busqueda_layout.addWidget(btn_buscar)
         busqueda_layout.addWidget(btn_nuevo_paciente)
 
         self.tabla_resultados = QTableWidget()
@@ -59,8 +58,10 @@ class CitaWidget(QWidget):
         self.input_localidad = QLineEdit()
 
         self.input_busqueda_examen = QLineEdit()
-        self.input_busqueda_examen.setPlaceholderText("Filtrar exámenes...")
-        self.input_busqueda_examen.textChanged.connect(self.filtrar_examenes)
+        self.input_busqueda_examen.setPlaceholderText("Filtrar exámenes (min. 3 caracteres)...")
+        self._debounced_search_examen = DebouncedSearch(
+            self.input_busqueda_examen, self.filtrar_examenes, show_all_on_empty=True
+        )
 
         self.lista_examenes = QListWidget()
 
@@ -114,10 +115,7 @@ class CitaWidget(QWidget):
                 item.setData(Qt.ItemDataRole.UserRole, id_tipo_examen)
                 self.lista_examenes.addItem(item)
 
-    def handle_buscar_paciente(self):
-        query = self.input_busqueda.text().strip()
-        if not query:
-            return
+    def handle_buscar_paciente(self, query: str):
 
         db = SessionLocal()
         try:

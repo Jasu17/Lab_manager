@@ -16,6 +16,8 @@ class Usuario(Base):
     nombre = Column(String, nullable=False)
     password_hash = Column(String, nullable=False)
     activo = Column(Boolean, default=True, nullable=False)
+    registro_profesional = Column(String, nullable=True)
+    firma_imagen = Column(String, nullable=True)
 
     # Relaciones
     roles = relationship(

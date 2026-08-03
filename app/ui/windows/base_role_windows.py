@@ -1,4 +1,5 @@
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
 class BaseRoleWindow(QWidget):
@@ -11,10 +12,13 @@ class BaseRoleWindow(QWidget):
 
         self._barra_superior = QHBoxLayout()
         if len(roles) > 1:
-            btn_cambiar_rol = QPushButton("Cambiar de Rol")
+            btn_cambiar_rol = QPushButton("Cambiar de rol")
             btn_cambiar_rol.clicked.connect(self._handle_cambiar_rol)
             self._barra_superior.addStretch()
             self._barra_superior.addWidget(btn_cambiar_rol)
+
+            shortcut = QShortcut(QKeySequence("Ctrl+R"), self)
+            shortcut.activated.connect(self._handle_cambiar_rol)
 
         self._layout_principal = QVBoxLayout()
         self._layout_principal.addLayout(self._barra_superior)

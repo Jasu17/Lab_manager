@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt
 from app.database.session import SessionLocal
 from app.services.paciente_service import search_pacientes
 from app.services.examen_service import get_historial_paciente
+from app.ui.widgets.debounced_search import DebouncedSearch
 
 PACIENTES_COLUMNS = ["Nombre", "Tipo ID", "Identificación"]
 HISTORIAL_COLUMNS = ["Tipo de examen", "Resultado", "Observaciones", "Estado", "Fecha"]
@@ -16,12 +17,10 @@ class HistorialWidget(QWidget):
         # -- Busqueda de paciente
         self.input_busqueda = QLineEdit()
         self.input_busqueda.setPlaceholderText("Buscar por nombre o identificación...")
-        btn_buscar = QPushButton("Buscar")
-        btn_buscar.clicked.connect(self.handle_buscar)
+        self._debounced_search = DebouncedSearch(self.input_busqueda, self.handle_buscar)
 
         busqueda_layout = QHBoxLayout()
         busqueda_layout.addWidget(self.input_busqueda)
-        busqueda_layout.addWidget(btn_buscar)
 
         self.tabla_pacientes = QTableWidget()
         self.tabla_pacientes.setColumnCount(len(PACIENTES_COLUMNS))
@@ -45,10 +44,7 @@ class HistorialWidget(QWidget):
         layout.addWidget(self.tabla_historial)
         self.setLayout(layout)
 
-    def handle_buscar(self):
-        query = self.input_busqueda.text().strip()
-        if not query:
-            return
+    def handle_buscar(self, query: str):
 
         db = SessionLocal()
         try:

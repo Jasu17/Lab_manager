@@ -1,8 +1,8 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+    QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget
 )
-
+from app.ui.widgets.debounced_search import DebouncedSearch
 from app.database.session import SessionLocal
 from app.services.examen_service import (
     create_tipo_examen,
@@ -26,9 +26,16 @@ class TipoExamenWidget(QWidget):
         self.tabla_examenes.horizontalHeader().setStretchLastSection(True)
         self.tabla_examenes.itemSelectionChanged.connect(self.handle_seleccionar_examen)
 
+        self.input_busqueda = QLineEdit()
+        self.input_busqueda.setPlaceholderText("Buscar por noimbre (min. 3 caracteres)")
+        self._debounced_search = DebouncedSearch(
+            self.input_busqueda, self.filtrar_examenes, show_all_on_empty=True
+        )
+
         # -- Formulario
         self.input_nombre = QLineEdit()
-        self.input_referencia = QLineEdit()
+        self.input_referencia = QTextEdit()
+        self.input_referencia.setFixedHeight(100)
         self.input_precio = QSpinBox()
         self.input_precio.setRange(0, 10_000_000)
         self.input_precio.setSingleStep(1000)
@@ -65,6 +72,7 @@ class TipoExamenWidget(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Catálogo de examenes"))
+        layout.addWidget(self.input_busqueda)
         layout.addWidget(self.tabla_examenes)
         layout.addLayout(form_layout)
         layout.addLayout(botones_layout)
@@ -104,6 +112,13 @@ class TipoExamenWidget(QWidget):
             
         self._limpiar_formulario()
 
+    def filtrar_examenes(self, texto: str):
+        texto = texto.lower().strip()
+        for row_idx in range(self.tabla_examenes.rowCount()):
+            nombre_item = self.tabla_examenes.item(row_idx, 0)
+            coincide = texto in nombre_item.text().lower()
+            self.tabla_examenes.setRowHidden(row_idx, not coincide)
+
     def handle_seleccionar_examen(self):
         fila = self.tabla_examenes.currentRow()
         if fila < 0:
@@ -114,7 +129,7 @@ class TipoExamenWidget(QWidget):
 
         self.id_tipo_examen_actual = t["id_tipo_examen"]
         self.input_nombre.setText(t["nombre"])
-        self.input_referencia.setText(t["referencia"] or "")
+        self.input_referencia.setPlainText(t["referencia"] or "")
         self.input_precio.setValue(t["precio"])
         self.input_tipo_muestra.setText(t["tipo_muestra"] or "")
         self.input_tecnica.setText(t["tecnica_utilizada"] or "")
@@ -134,7 +149,7 @@ class TipoExamenWidget(QWidget):
                 db,
                 nombre=nombre,
                 precio=self.input_precio.value(),
-                referencia=self.input_referencia.text().strip() or None,
+                referencia=self.input_referencia.toPlainText().strip() or None,
                 tipo_muestra=self.input_tipo_muestra.text().strip() or None,
                 tecnica_utilizada=self.input_tecnica.text().strip() or None,
             )
@@ -157,7 +172,7 @@ class TipoExamenWidget(QWidget):
                 db, self.id_tipo_examen_actual,
                 nombre=self.input_nombre.text().strip(),
                 precio=self.input_precio.value(),
-                referencia=self.input_referencia.text().strip() or None,
+                referencia=self.input_referencia.toPlainText().strip() or None,
                 tipo_muestra=self.input_tipo_muestra.text().strip() or None,
                 tecnica_utilizada=self.input_tecnica.text().strip() or None,
             )

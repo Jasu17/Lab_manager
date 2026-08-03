@@ -38,8 +38,7 @@ def save_resultado(
     examen.id_usuario = id_usuario
     examen.estado = EstadoExamen.COMPLETADO if completar else EstadoExamen.EN_PROCESO
 
-    db.commit()
-    db.refresh(examen)
+    db.flush()
     return examen
 
 def get_historial_paciente(db: Session, id_paciente: int) -> list[ExamenRealizado]:

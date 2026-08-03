@@ -1,19 +1,16 @@
-from sqlite3 import connect
-
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit,
     QPushButton, QLabel, QTableWidget, QTableWidgetItem, QComboBox,
     QSpinBox, QDateEdit, QMessageBox
 )
 from PySide6.QtCore import Qt, QDate
-from sqlalchemy.orm import query
+from app.ui.widgets.debounced_search import DebouncedSearch
 from app.database.session import SessionLocal
 from app.services.paciente_service import search_pacientes, update_paciente
 
 TIPOS_ID = ["CC","TI","CE","PA"]
 OPCIONES_SEXO = ["Masculino", "Femenino", "NB", "T"]
 OPCIONES_ESTADO_CIVIL = ["Soltero/a", "Casado/a", "Unión libre", "Divorciado/a", "Viudo/a"]
-
 RESULTADOS_COLUMNS = ["Nombre", "Tipo ID", "Identificación"]
 
 class PacienteWidget(QWidget):
@@ -23,13 +20,11 @@ class PacienteWidget(QWidget):
 
         # -- Busqueda
         self.input_busqueda = QLineEdit()
-        self.input_busqueda.setPlaceholderText("Buscar por nombre o identificación...")
-        btn_buscar = QPushButton("Buscar")
-        btn_buscar.clicked.connect(self.handle_buscar)
+        self.input_busqueda.setPlaceholderText("Buscar por nombre o identificaion...")
+        self._debounced_search = DebouncedSearch(self.input_busqueda, self.handle_buscar)
 
         busqueda_layout = QHBoxLayout()
         busqueda_layout.addWidget(self.input_busqueda)
-        busqueda_layout.addWidget(btn_buscar)
 
         self.tabla_resultados = QTableWidget()
         self.tabla_resultados.setColumnCount(len(RESULTADOS_COLUMNS))
@@ -55,6 +50,7 @@ class PacienteWidget(QWidget):
         self.input_hijos.setRange(0, 30)
         self.input_estudios = QLineEdit()
         self.input_responsable = QLineEdit()
+        self.input_ciudad = QLineEdit()
 
         form_layout = QFormLayout()
         form_layout.addRow("Identificación:", self.input_identificacion)
@@ -68,6 +64,7 @@ class PacienteWidget(QWidget):
         form_layout.addRow("Hijos:", self.input_hijos)
         form_layout.addRow("Estudios:", self.input_estudios)
         form_layout.addRow("Responsable:", self.input_responsable)
+        form_layout.addRow("Ciudad:", self.input_ciudad)
 
         self.btn_guardar = QPushButton("Guardar Cambios")
         self.btn_guardar.setEnabled(False)
@@ -85,10 +82,7 @@ class PacienteWidget(QWidget):
         self.setLayout(layout)
 
 
-    def handle_buscar (self):
-        query = self.input_busqueda.text().strip()
-        if not query:
-            return
+    def handle_buscar (self, query: str):
         
         db = SessionLocal()
         try:
@@ -139,6 +133,7 @@ class PacienteWidget(QWidget):
             self.input_hijos.setValue(paciente.hijos or 0)
             self.input_estudios.setText(paciente.estudios or "")
             self.input_responsable.setText(paciente.responsable or "")
+            self.input_ciudad.setText(paciente.ciudad or "")
         finally:
             db.close()
 
@@ -164,6 +159,7 @@ class PacienteWidget(QWidget):
                 hijos=self.input_hijos.value(),
                 estudios=self.input_estudios.text().strip() or None,
                 responsable=self.input_responsable.text().strip() or None,
+                ciudad=self.input_ciudad.text().strip() or None,
             )
 
         except Exception as e:
