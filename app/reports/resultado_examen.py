@@ -8,16 +8,19 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 
 SERVICIO_FIJO = "Laboratorio Clínico (Apoyo diagnóstico y complementación terapéutica)"
 
-def calcular_edad (fecha_nacimiento: date | None) -> int | None:
+
+def calcular_edad(fecha_nacimiento: date | None) -> int | None:
+    """Calcula la edad actual a partir de la fecha de nacimiento. No se almacena en BD."""
     if fecha_nacimiento is None:
         return None
-
     hoy = date.today()
     return hoy.year - fecha_nacimiento.year - (
         (hoy.month, hoy.day) < (fecha_nacimiento.month, fecha_nacimiento.day)
     )
 
+
 def _dibujar_encabezado_pie(canvas, doc, datos: dict):
+    """Encabezado (fecha/hora de generación, número de cita) y pie (número de página)."""
     canvas.saveState()
     ancho, alto = letter
 
@@ -32,27 +35,82 @@ def _dibujar_encabezado_pie(canvas, doc, datos: dict):
     canvas.drawCentredString(ancho / 2, 1.2 * cm, str(doc.page))
     canvas.restoreState()
 
+
+def _construir_bloque_examen(examen: dict, styles: dict) -> Table:
+    """
+    Construye la caja de un examen individual: nombre, tabla de
+    referencia/resultado línea por línea, y observaciones (solo si
+    no están vacías).
+    """
+    contenido = [
+        Paragraph(examen.get("tipo_examen_nombre", ""), styles["nombre_examen"]),
+        Spacer(1, 0.2 * cm),
+    ]
+
+    lineas_referencia = (examen.get("referencia") or "").split("\n")
+    lineas_resultado = (examen.get("resultado") or "").split("\n")
+
+    filas_tabla = [[Paragraph("<b>Referencia</b>", styles["normal"]),
+                     Paragraph("<b>Resultado</b>", styles["normal"])]]
+
+    total_lineas = max(len(lineas_referencia), len(lineas_resultado))
+    for i in range(total_lineas):
+        ref = lineas_referencia[i].strip() if i < len(lineas_referencia) else ""
+        res = lineas_resultado[i].strip() if i < len(lineas_resultado) else ""
+        filas_tabla.append([
+            Paragraph(ref, styles["normal"]),
+            Paragraph(res, styles["normal"]),
+        ])
+
+    tabla_ref_res = Table(filas_tabla, colWidths=[8 * cm, 8 * cm])
+    tabla_ref_res.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.92, 0.92, 0.92)),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    contenido.append(tabla_ref_res)
+
+    observaciones = (examen.get("observaciones") or "").strip()
+    if observaciones:
+        contenido.append(Spacer(1, 0.3 * cm))
+        contenido.append(Paragraph("<b>Observaciones</b>", styles["normal"]))
+        contenido.append(Paragraph(observaciones, styles["normal"]))
+
+    caja = Table([[contenido]], colWidths=[17 * cm])
+    caja.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 1, colors.black),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    return caja
+
+
 def generar_pdf_resultado(ruta_archivo: str, datos: dict) -> str:
     """
-    Genera el PDF de resultado con membrete institucional.
+    Genera el PDF de resultados con membrete institucional, cubriendo
+    todos los exámenes de la cita.
 
     datos: diccionario con las claves:
         numero_cita, fecha_cita, fecha_actual, hora_actual,
         paciente_nombre, paciente_documento, paciente_edad, paciente_sexo,
-        paciente_estado_civil, paciente_regimen, paciente_ciudad,
-        paciente_telefono, paciente_nacimiento,
-        examen_nombre, resultado, referencia, fecha_examen,
+        paciente_estado_civil, paciente_ciudad, paciente_telefono,
+        paciente_nacimiento, fecha_examen,
+        examenes: lista de dicts con tipo_examen_nombre, referencia,
+                  resultado, observaciones,
         lab_nombre, lab_direccion, lab_ciudad, lab_logo_path,
         bacteriologa_nombre, bacteriologa_registro, bacteriologa_firma_path
     """
-
     doc = SimpleDocTemplate(
         ruta_archivo, pagesize=letter,
         leftMargin=2 * cm, rightMargin=2 * cm,
         topMargin=3 * cm, bottomMargin=2.5 * cm
     )
-    styles = getSampleStyleSheet()
-    normal = styles["Normal"]
+    base_styles = getSampleStyleSheet()
+    normal = base_styles["Normal"]
     small = ParagraphStyle("small", parent=normal, fontSize=9)
     titulo = ParagraphStyle("titulo", parent=normal, fontSize=14, fontName="Helvetica-Bold")
     seccion = ParagraphStyle("seccion", parent=normal, fontSize=12, fontName="Helvetica-Bold")
@@ -60,9 +118,15 @@ def generar_pdf_resultado(ruta_archivo: str, datos: dict) -> str:
     centrado = ParagraphStyle("centrado", parent=normal, alignment=1)
     centrado_small = ParagraphStyle("centrado_small", parent=small, alignment=1)
 
+    styles = {
+        "normal": normal, "small": small, "titulo": titulo,
+        "seccion": seccion, "nombre_examen": nombre_examen_style,
+        "centrado": centrado, "centrado_small": centrado_small,
+    }
+
     story = []
 
-    # --- Encabezado institucional: datos del lab + logo ---
+    # --- Encabezado institucional: datos del lab + logo (sin cédula) ---
     lab_info = [
         Paragraph(datos.get("lab_nombre", ""), titulo),
         Spacer(1, 0.2 * cm),
@@ -102,7 +166,7 @@ def generar_pdf_resultado(ruta_archivo: str, datos: dict) -> str:
     story.append(titulo_hc)
     story.append(Spacer(1, 0.4 * cm))
 
-    # --- Datos del paciente ---
+    # --- Datos del paciente (sin "examen solicitado") ---
     edad = datos.get("paciente_edad")
     edad_str = f"{edad} años" if edad is not None else "N/A"
 
@@ -123,38 +187,21 @@ def generar_pdf_resultado(ruta_archivo: str, datos: dict) -> str:
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
     ]))
     story.append(tabla_paciente)
-    story.append(Spacer(1, 0.3 * cm))
-    story.append(Paragraph(f"<b>Examen solicitado:</b> {datos.get('examen_nombre', '')}", normal))
     story.append(Spacer(1, 0.6 * cm))
 
-    # --- Sección de laboratorio (resultado, referencia, servicio) ---
+    # --- Sección de laboratorio: una caja por cada examen ---
     story.append(Paragraph("LABORATORIO", seccion))
     story.append(Spacer(1, 0.2 * cm))
+    story.append(Paragraph(f"<b>Servicio:</b> {SERVICIO_FIJO}", normal))
+    story.append(Spacer(1, 0.4 * cm))
 
-    contenido_examen = [
-        Paragraph(datos.get("examen_nombre", ""), nombre_examen_style),
-        Spacer(1, 0.2 * cm),
-        Paragraph("<b>Resultado</b>", normal),
-        Paragraph(datos.get("resultado") or "Sin resultado registrado", normal),
-        Spacer(1, 0.2 * cm),
-        Paragraph("<b>Valor de referencia</b>", normal),
-        Paragraph(datos.get("referencia") or "N/A", normal),
-        Spacer(1, 0.2 * cm),
-        Paragraph("<b>Servicio</b>", normal),
-        Paragraph(SERVICIO_FIJO, normal),
-    ]
-    tabla_examen = Table([[contenido_examen]], colWidths=[17 * cm])
-    tabla_examen.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 1, colors.black),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-        ("LEFTPADDING", (0, 0), (-1, -1), 10),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-    ]))
-    story.append(tabla_examen)
-    story.append(Spacer(1, 1 * cm))
+    for examen in datos.get("examenes", []):
+        story.append(_construir_bloque_examen(examen, styles))
+        story.append(Spacer(1, 0.5 * cm))
 
-    # --- Firma (opcional) ---
+    story.append(Spacer(1, 0.5 * cm))
+
+    # --- Firma (opcional, sin cédula) ---
     firma_path = datos.get("bacteriologa_firma_path")
     firma_elementos = []
     if firma_path and os.path.exists(firma_path):

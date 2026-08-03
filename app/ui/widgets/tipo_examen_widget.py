@@ -2,7 +2,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget
 )
-
+from app.ui.widgets.debounced_search import DebouncedSearch
 from app.database.session import SessionLocal
 from app.services.examen_service import (
     create_tipo_examen,
@@ -25,6 +25,12 @@ class TipoExamenWidget(QWidget):
         self.tabla_examenes.setHorizontalHeaderLabels(TIPOS_EXAMEN_COLUMNS)
         self.tabla_examenes.horizontalHeader().setStretchLastSection(True)
         self.tabla_examenes.itemSelectionChanged.connect(self.handle_seleccionar_examen)
+
+        self.input_busqueda = QLineEdit()
+        self.input_busqueda.setPlaceholderText("Buscar por noimbre (min. 3 caracteres)")
+        self._debounced_search = DebouncedSearch(
+            self.input_busqueda, self.filtrar_examenes, show_all_on_empty=True
+        )
 
         # -- Formulario
         self.input_nombre = QLineEdit()
@@ -66,6 +72,7 @@ class TipoExamenWidget(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Catálogo de examenes"))
+        layout.addWidget(self.input_busqueda)
         layout.addWidget(self.tabla_examenes)
         layout.addLayout(form_layout)
         layout.addLayout(botones_layout)
@@ -104,6 +111,13 @@ class TipoExamenWidget(QWidget):
             self.tabla_examenes.setItem(row_idx, 5, QTableWidgetItem("Si" if t["activo"] else "No"))
             
         self._limpiar_formulario()
+
+    def filtrar_examenes(self, texto: str):
+        texto = texto.lower().strip()
+        for row_idx in range(self.tabla_examenes.rowCount()):
+            nombre_item = self.tabla_examenes.item(row_idx, 0)
+            coincide = texto in nombre_item.text().lower()
+            self.tabla_examenes.setRowHidden(row_idx, not coincide)
 
     def handle_seleccionar_examen(self):
         fila = self.tabla_examenes.currentRow()

@@ -1,85 +1,59 @@
 from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QPushButton, QLabel, QTextEdit, QMessageBox, QFileDialog
+    QPushButton, QLabel, QMessageBox, QFileDialog
 )
 from PySide6.QtCore import Qt
-from app.config.lab_config import get_lab_config
 from app.database.session import SessionLocal
 from app.services.cita_service import get_agenda_bacteriologa
-from app.services.examen_service import save_resultado
-from app.reports.resultado_examen import calcular_edad, generar_pdf_resultado
-from app.reports.comprobante_asistencia import generar_pdf_comprobante_asistencia
 from app.services.usuario_service import get_usuario_by_id
+from app.services.paciente_service import get_paciente_by_id
+from app.reports.resultado_examen import generar_pdf_resultado, calcular_edad
+from app.reports.comprobante_asistencia import generar_pdf_comprobante_asistencia
+from app.config.lab_config import get_lab_config
+from app.ui.widgets.registrar_resultados_dialog import RegistrarResultadosDialog
 
 CITAS_COLUMNS = ["Paciente", "Identificación", "Fecha", "Hora", "Localidad"]
-EXAMENES_COLUMNS = ["Tipo de Examen", "Estado"]
+
 
 class BacteriologaWidget(QWidget):
     def __init__(self, usuario):
         super().__init__()
         self.usuario = usuario
-        self.cita_actual = None # dict con datos de la cita seleccionada
-        self.examen_actual = None  # dict con datos del examen seleccionado
+        self.cita_actual = None
 
-        # -- Tabla de citas habilitadas
         self.tabla_citas = QTableWidget()
         self.tabla_citas.setColumnCount(len(CITAS_COLUMNS))
         self.tabla_citas.setHorizontalHeaderLabels(CITAS_COLUMNS)
         self.tabla_citas.horizontalHeader().setStretchLastSection(True)
         self.tabla_citas.itemSelectionChanged.connect(self.handle_seleccionar_cita)
 
-        btn_comprobante = QPushButton()
+        btn_refrescar = QPushButton("Refrescar agenda")
+        btn_refrescar.clicked.connect(self.refresh_citas)
+
+        btn_comprobante = QPushButton("Generar comprobante de asistencia")
         btn_comprobante.clicked.connect(self.handle_generar_comprobante)
 
-        # -- Tabla de Examenes de la cita seleccionada
-        self.tabla_examenes = QTableWidget()
-        self.tabla_examenes.setColumnCount(len(EXAMENES_COLUMNS))
-        self.tabla_examenes.setHorizontalHeaderLabels(EXAMENES_COLUMNS)
-        self.tabla_examenes.horizontalHeader().setStretchLastSection(True)
-        self.tabla_examenes.itemSelectionChanged.connect(self.handle_seleccionar_examen)
-
-        # -- Formulario de resultado
-        self.input_resultado = QTextEdit()
-        self.input_observaciones = QTextEdit()
-
-        self.btn_guardar_avance = QPushButton("Guardar avance")
-        self.btn_guardar_avance.setEnabled(False)
-        self.btn_guardar_avance.clicked.connect(lambda: self.handle_guardar_resultado(completar=False))
-
-        self.btn_completar = QPushButton("Guardar y completar")
-        self.btn_completar.setEnabled(False)
-        self.btn_completar.clicked.connect(lambda: self.handle_guardar_resultado(completar=True))
+        self.btn_registrar_resultados = QPushButton("Registrar resultados")
+        self.btn_registrar_resultados.setEnabled(False)
+        self.btn_registrar_resultados.clicked.connect(self.handle_abrir_registrar_resultados)
 
         self.btn_pdf_resultado = QPushButton("Generar PDF de resultado")
         self.btn_pdf_resultado.setEnabled(False)
         self.btn_pdf_resultado.clicked.connect(self.handle_generar_pdf_resultado)
 
-        btn_refrescar = QPushButton("Refrescar Agenda")
-        btn_refrescar.clicked.connect(self.refresh_citas)
+        botones_layout = QHBoxLayout()
+        botones_layout.addWidget(self.btn_registrar_resultados)
+        botones_layout.addWidget(self.btn_pdf_resultado)
+        botones_layout.addWidget(btn_comprobante)
 
-        # -- Layout General
         layout = QVBoxLayout()
         layout.addWidget(btn_refrescar)
         layout.addWidget(QLabel("Citas habilitadas"))
         layout.addWidget(self.tabla_citas)
-        layout.addWidget(btn_comprobante)
-
-        layout.addWidget(QLabel("Exámenes de la Cita"))
-        layout.addWidget(self.tabla_examenes)
-
-        layout.addWidget(QLabel("Resultado:"))
-        layout.addWidget(self.input_resultado)
-        layout.addWidget(QLabel("Observaciones:"))
-        layout.addWidget(self.input_observaciones)
-
-        botones_layout = QHBoxLayout()
-        botones_layout.addWidget(self.btn_guardar_avance)
-        botones_layout.addWidget(self.btn_completar)
-        botones_layout.addWidget(self.btn_pdf_resultado)
         layout.addLayout(botones_layout)
-
         self.setLayout(layout)
+
         self.refresh_citas()
 
     def refresh_citas(self):
@@ -89,13 +63,13 @@ class BacteriologaWidget(QWidget):
             self._citas_cache = [
                 {
                     "id_cita": c.id_cita,
+                    "id_paciente": c.paciente.id_paciente,
                     "paciente_nombre": c.paciente.nombre,
                     "paciente_tipo_id": c.paciente.tipo_id,
                     "paciente_identificacion": c.paciente.identificacion,
                     "fecha": c.fecha.strftime("%Y-%m-%d"),
                     "hora": c.hora.strftime("%H:%M"),
                     "localidad": c.localidad,
-                    "id_paciente": c.paciente.id_paciente,
                     "examenes": [
                         {
                             "id_examen": e.id_examen,
@@ -124,8 +98,9 @@ class BacteriologaWidget(QWidget):
             self.tabla_citas.setItem(row_idx, 3, QTableWidgetItem(c["hora"]))
             self.tabla_citas.setItem(row_idx, 4, QTableWidgetItem(c["localidad"] or ""))
 
-        self.tabla_examenes.setRowCount(0)
-        self._limpiar_formulario_resultado()
+        self.cita_actual = None
+        self.btn_registrar_resultados.setEnabled(False)
+        self.btn_pdf_resultado.setEnabled(False)
 
     def handle_seleccionar_cita(self):
         fila = self.tabla_citas.currentRow()
@@ -135,72 +110,32 @@ class BacteriologaWidget(QWidget):
         row_idx = self.tabla_citas.item(fila, 0).data(Qt.ItemDataRole.UserRole)
         self.cita_actual = self._citas_cache[row_idx]
 
-        examenes = self.cita_actual["examenes"]
-        self.tabla_examenes.setRowCount(len(examenes))
-        for row_idx_ex, e in enumerate(examenes):
-            item_tipo = QTableWidgetItem(e["tipo_examen_nombre"])
-            item_tipo.setData(Qt.ItemDataRole.UserRole, row_idx_ex)
-            self.tabla_examenes.setItem(row_idx_ex, 0, item_tipo)
-            self.tabla_examenes.setItem(row_idx_ex, 1, QTableWidgetItem(e["estado"]))
-
-        self._limpiar_formulario_resultado()
-
-    def handle_seleccionar_examen(self):
-        fila = self.tabla_examenes.currentRow()
-        if fila < 0:
-            return
-
-        row_idx_ex = self.tabla_examenes.item(fila, 0).data(Qt.ItemDataRole.UserRole)
-        self.examen_actual = self.cita_actual["examenes"][row_idx_ex]
-
-        self.input_resultado.setPlainText(self.examen_actual["resultado"] or "")
-        self.input_observaciones.setPlainText(self.examen_actual["observaciones"] or "")
-
-        self.btn_guardar_avance.setEnabled(True)
-        self.btn_completar.setEnabled(True)
+        self.btn_registrar_resultados.setEnabled(True)
         self.btn_pdf_resultado.setEnabled(True)
-    
-    def handle_guardar_resultado(self, completar: bool):
-        if self.examen_actual is None:
+
+    def handle_abrir_registrar_resultados(self):
+        if self.cita_actual is None:
             return
 
-        db = SessionLocal()
-        try:
-            save_resultado(
-                db,
-                id_examen=self.examen_actual["id_examen"],
-                id_usuario=self.usuario["id_usuario"],
-                resultado=self.input_resultado.toPlainText().strip(),
-                observaciones=self.input_observaciones.toPlainText().strip(),
-                completar=completar,
-            )
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo gaurdar: {e}")
-            return
-        finally:
-            db.close()
-
-        QMessageBox.information(self, "Exito", "Resultado guardado correctamente")
-        self.refresh_citas()
+        dialog = RegistrarResultadosDialog(self.cita_actual, self.usuario["id_usuario"], self)
+        if dialog.exec() == RegistrarResultadosDialog.DialogCode.Accepted:
+            self.refresh_citas()
 
     def handle_generar_pdf_resultado(self):
-        if self.examen_actual is None or self.cita_actual is None:
+        if self.cita_actual is None:
             return
 
         ruta, _ = QFileDialog.getSaveFileName(
-            self, "Guardar PDF de resultado", "resultado.pdf", "PDF (*.pdf)" 
+            self, "Guardar PDF de resultado", "resultado.pdf", "PDF (*.pdf)"
         )
         if not ruta:
             return
 
         db = SessionLocal()
         try:
-            from app.services.paciente_service import get_paciente_by_id
             usuario_bacteriologa = get_usuario_by_id(db, self.usuario["id_usuario"])
             paciente = get_paciente_by_id(db, self.cita_actual["id_paciente"])
-            
             lab_config = get_lab_config()
-
             edad = calcular_edad(paciente.fecha_nacimiento) if paciente else None
 
             datos = {
@@ -218,10 +153,8 @@ class BacteriologaWidget(QWidget):
                 "paciente_telefono": paciente.telefono if paciente else None,
                 "paciente_nacimiento": paciente.fecha_nacimiento.strftime("%d/%m/%Y") if paciente and paciente.fecha_nacimiento else None,
 
-                "examen_nombre": self.examen_actual["tipo_examen_nombre"],
-                "resultado": self.input_resultado.toPlainText().strip(),
-                "referencia": self.examen_actual.get("referencia"),
                 "fecha_examen": self.cita_actual["fecha"],
+                "examenes": self.cita_actual["examenes"],
 
                 "lab_nombre": lab_config["nombre_lab"],
                 "lab_direccion": lab_config["direccion_lab"],
@@ -234,21 +167,21 @@ class BacteriologaWidget(QWidget):
             }
         finally:
             db.close()
-        
+
         try:
             generar_pdf_resultado(ruta, datos)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo generar el PDF: {e}")
             return
-        
-        QMessageBox.information(self, "Éxito", f"PDF generado en : {ruta}")
+
+        QMessageBox.information(self, "Éxito", f"PDF generado en: {ruta}")
 
     def handle_generar_comprobante(self):
         if self.cita_actual is None:
             return
 
         ruta, _ = QFileDialog.getSaveFileName(
-            self, "Guardar Comprobante de asistencia", "comprobante.pdf", "PDF (*.pdf)"
+            self, "Guardar comprobante de asistencia", "comprobante.pdf", "PDF (*.pdf)"
         )
         if not ruta:
             return
@@ -256,15 +189,7 @@ class BacteriologaWidget(QWidget):
         try:
             generar_pdf_comprobante_asistencia(ruta, self.cita_actual)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo guardar el comprobante: {e}")
+            QMessageBox.critical(self, "Error", f"No se pudo generar el comprobante: {e}")
             return
 
-        QMessageBox.information(self, "Exito", f"Comprobante guardado en: {ruta}")
-
-    def _limpiar_formulario_resultado(self):
-        self.examen_actual = None
-        self.input_resultado.clear()
-        self.input_observaciones.clear()
-        self.btn_guardar_avance.setEnabled(False)
-        self.btn_completar.setEnabled(False)
-        self.btn_pdf_resultado.setEnabled(False)
+        QMessageBox.information(self, "Éxito", f"Comprobante generado en: {ruta}")
