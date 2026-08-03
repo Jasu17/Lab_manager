@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QLabel, QMessageBox, QFileDialog
@@ -12,6 +13,15 @@ from app.reports.resultado_examen import generar_pdf_resultado, calcular_edad
 from app.reports.comprobante_asistencia import generar_pdf_comprobante_asistencia
 from app.config.lab_config import get_lab_config
 from app.ui.widgets.registrar_resultados_dialog import RegistrarResultadosDialog
+
+def _normalizar_nombre_archivo (texto: str) -> str:
+    texto = texto.lower().strip()
+    reemplazos = {"á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "ñ": "n"}
+    for original, reemplazo in reemplazos.items():
+        texto = texto.replace(original, reemplazo)
+    texto = re.sub(r"[^a-z0-9\s]", "", texto)
+    texto = re.sub(r"\s+", "_", texto.strip())
+    return texto
 
 CITAS_COLUMNS = ["Paciente", "Identificación", "Fecha", "Hora", "Localidad"]
 
@@ -125,8 +135,12 @@ class BacteriologaWidget(QWidget):
         if self.cita_actual is None:
             return
 
+        nombre_sugerido = (
+            f"resultado_{_normalizar_nombre_archivo(self.cita_actual['paciente_nombre'])}"
+            f"_{self.cita_actual['paciente_identificacion']}.pdf"
+        )    
         ruta, _ = QFileDialog.getSaveFileName(
-            self, "Guardar PDF de resultado", "resultado.pdf", "PDF (*.pdf)"
+            self, "Guardar PDF de resultado", nombre_sugerido, "PDF (*.pdf)"
         )
         if not ruta:
             return
@@ -180,8 +194,12 @@ class BacteriologaWidget(QWidget):
         if self.cita_actual is None:
             return
 
+        nombre_sugerido = (
+            f"comprobante_{_normalizar_nombre_archivo(self.cita_actual['paciente_nombre'])}"
+            f"_{self.cita_actual['paciente_identificacion']}.pdf"
+        )
         ruta, _ = QFileDialog.getSaveFileName(
-            self, "Guardar comprobante de asistencia", "comprobante.pdf", "PDF (*.pdf)"
+            self, "Guardar comprobante de asistencia", nombre_sugerido, "PDF (*.pdf)"
         )
         if not ruta:
             return

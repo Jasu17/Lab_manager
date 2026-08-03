@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import(
-    QWidget, QVBoxLayout, QTabWidget, QTableWidget, QTableWidgetItem, QComboBox, QPushButton
+    QWidget, QVBoxLayout, QTabWidget, QTableWidget, QTableWidgetItem, QComboBox, QPushButton, QMenu, QMessageBox
 )
 from sqlalchemy.orm import joinedload
 from app.database.session import SessionLocal
@@ -7,8 +7,12 @@ from app.models.cita import Cita, EstadoCita
 from app.services.cita_service import update_estado_cita
 from app.models.examen import ExamenRealizado
 from app.ui.widgets.editar_examenes_dialog import EditarExamenesDialog
+from app.config.lab_config import get_lab_config
+from app.services.whatsapp_service import (
+    enviar_bienvenida, enviar_cita_asignada, enviar_confirmar_cita, TelefonoInvalidoError
+)
 
-COLUMNS = ["Nombre", "Tipo ID", "Identificación", "Fecha", "Hora", "Exámenes", "Estado", "Acciones"]
+COLUMNS = ["Nombre", "Tipo ID", "Identificación", "Fecha", "Hora", "Exámenes", "Estado", "Acciones", "WhatsApp"]
 
 class AgendaWidget(QWidget):
     def __init__(self):
@@ -60,8 +64,11 @@ class AgendaWidget(QWidget):
                     "nombre": cita.paciente.nombre,
                     "tipo_id": cita.paciente.tipo_id,
                     "identificacion": cita.paciente.identificacion,
+                    "telefono": cita.paciente.telefono,
+                    "fecha_obj": cita.fecha,
                     "fecha": cita.fecha.strftime("%Y-%m-%d"),
                     "hora": cita.hora.strftime("%H:%M"),
+                    "localidad": cita.localidad,
                     "examenes": examen_str,
                     "examenes_detalle": [
                         {"id_examen": ex.id_examen, "id_tipo_examen": ex.id_tipo_examen}
@@ -106,6 +113,11 @@ class AgendaWidget(QWidget):
                     self._abrir_editar_examenes(id_cita, examenes)
             )
             tabla.setCellWidget(row_idx, 7, btn_editar)
+            btn_whatsapp = QPushButton("WhatsApp")
+            btn_whatsapp.clicked.connect(
+                lambda checked = False, f=fila: self._mostrar_menu_whatsapp(f, btn_whatsapp)
+            )
+            tabla.setCellWidget(row_idx, 8, btn_whatsapp)
 
     def _on_estado_changed(self, id_cita: int, combo: QComboBox):
         nuevo_estado = combo.currentData()
@@ -123,3 +135,34 @@ class AgendaWidget(QWidget):
         if dialog.exec() == EditarExamenesDialog.DialogCode.Accepted:
             self.refresh_agenda()
 
+    def _mostrar_menu_whatsapp(self, fila: dict, boton: QPushButton):
+        menu = QMenu(self)
+        accion_bienvenida = menu.addAction("Enviar bienvenida")
+        accion_cita_asignada = menu.addAction("Enviar cita asignada")
+        accion_confirmar = menu.addAction("Enviar comfimar cita")
+
+        accion_bienvenida.triggered.connect(lambda: self._enviar_whatsapp("bienvenida", fila))
+        accion_cita_asignada.triggered.connect(lambda: self._enviar_whatsapp("cita_asignada", fila))
+        accion_confirmar.triggered.connect(lambda: self._enviar_whatsapp("confirmar", fila))
+
+        menu.exec(boton.mapToGlobal(boton.rect().bottomLeft()))
+
+    def _enviar_whatsapp(self, tipo: str, fila:dict):
+        lab_config = get_lab_config()
+        nombre_lab = lab_config["nombre_lab"]
+
+        try:
+            if tipo == "bienvenida":
+                enviar_bienvenida(fila["telefono"], fila["nombre"], nombre_lab)
+            elif tipo == "cita_asignada":
+                enviar_cita_asignada(
+                    fila["telefono"], fila["nombre"], nombre_lab,
+                    fila["fecha_obj"], fila["hora"], fila.get("localidad") or "N/A"
+                )
+            elif tipo == "confirmar":
+                enviar_confirmar_cita(
+                    fila["telefono"], fila["nombre"], nombre_lab,
+                    fila["fecha_obj"], fila["hora"], fila.get("localidad") or "N/A"
+                )
+        except TelefonoInvalidoError as e:
+            QMessageBox.warning(self, "Teléfono inválido", str(e))
