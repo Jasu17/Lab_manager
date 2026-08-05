@@ -10,7 +10,7 @@ class RoleSelectorWindow(QWidget):
         self.setFixedSize(280, 200)
 
         layout = QVBoxLayout()
-        layout.addWidget(QLabel(f"Bienbenido/a, {usuario_dict['nombre']}"))
+        layout.addWidget(QLabel(f"Bienvenido/a, {usuario_dict['nombre']}"))
         layout.addWidget(QLabel("Seleccione un rol con el que desea trabajar: "))
 
         for rol in roles:
